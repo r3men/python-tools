@@ -6,7 +6,8 @@ Here, you will find a collection of python automation scripts designed to comple
 ## 🔧 IP Log Analyzer (log_analyzer.py)
 
 A command‑line tool for analyzing log files, extracting IPv4 addresses, detecting suspicious events, and exporting results in TXT, JSON, or CSV formats. Supports both interactive mode and argparse automation.
-Features:
+
+### Features:
 - Extracts IPv4 addresses from any log file
 - Counts occurrences and sorts by frequency
 - Detects suspicious events (failed, error, unauthorized, denied)
@@ -17,7 +18,8 @@ Features:
 
 ## 🔐 SIEM Log Parser (siem_engine.py)
 A modular Python tool for analyzing authentication logs and detecting suspicious login behavior. Designed for SOC analysts and cybersecurity enthusiasts, this engine supports both interactive mode and argparse automation. It identifies brute force attacks, password spraying, root login attempts, and multi-stage attack chains using time-window and correlation logic.
-Features:
+
+### Features:
 - Parses standard auth.log format and extracts timestamps, IPs, and usernames
 - Detects brute force, slow brute force, and high-velocity login attempts
 - Identifies password spraying based on unique username patterns
