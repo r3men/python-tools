@@ -31,7 +31,7 @@ A modular Python tool for analyzing authentication logs and detecting suspicious
 
 ## 🔍 Async TCP/UDP Port Scanner (port_scanner.py)
 A high‑performance, asynchronous port scanner written in Python. Supports TCP scanning (default), optional UDP scanning, banner grabbing, service detection, and exporting results to TXT/JSON/CSV. Designed for speed, clarity, and real‑world utility.
-### Features
+### Features:
 - Asynchronous TCP scanning (extremely fast)
 - Optional UDP scanning (--udp)
 - Banner grabbing for TCP services
