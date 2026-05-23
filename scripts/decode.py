@@ -1,4 +1,4 @@
-# Script Name: Decoder
+# Script Name: Pattern Decoder
 # Purpose: Scans a text file and decodes any detected Base64, Hex, URL-encoded, or ROT13 strings.
 
 import re
