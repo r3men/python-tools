@@ -71,3 +71,49 @@ def queryVirusTotal(ip):
     except Exception as e:
         print(f"[ERROR] VirusTotal query failed for {ip}: {e}")
         return None
+    
+def enrichIP(ip):
+    results = {}
+    results["abuse"] = queryAbuseIPDB(ip)
+    time.sleep(15) # Respect API rate limits
+    results["virustotal"] = queryVirusTotal(ip)
+    return results
+
+def printResults(ip, results, format="table"): # Default format is to be printed as a table
+    abuse = results.get("abuse")
+    vt = results.get("virustotal") 
+    if format == "table":
+        print(f"\n{'='*50}")
+        print(f"  IP: {ip}")
+        print(f"{'='*50}")
+        if abuse:
+            print(f"\n  [AbuseIPDB]")
+            print(f"    Abuse Score : {abuse['abuseScore']}/100")
+            print(f"    Country     : {abuse['country']}")
+            print(f"    ISP         : {abuse['isp']}")
+            print(f"    Reports     : {abuse['reports']}")
+            print(f"    Last Seen   : {abuse['lastSeen']}")
+        else:
+            print(f"\n  [AbuseIPDB] No data returned.")
+        if vt:
+            print(f"\n  [VirusTotal]")
+            print(f"    Malicious   : {vt['malicious']}")
+            print(f"    Suspicious  : {vt['suspicious']}")
+            print(f"    Harmless    : {vt['harmless']}")
+            print(f"    Country     : {vt['country']}")
+            print(f"    AS Owner    : {vt['asOwner']}")
+        else:
+            print(f"\n  [VirusTotal] No data returned.")
+        print(f"\n{'='*50}\n")
+    elif format == "json":
+        output = {"ip": ip, "abuse": abuse, "virustotal": vt}
+        print(json.dumps(output, indent=4))
+    elif format == "csv":
+        print(f"{ip},"
+              f"{abuse['abuseScore'] if abuse else 'N/A'},"
+              f"{abuse['country'] if abuse else 'N/A'},"
+              f"{abuse['isp'] if abuse else 'N/A'},"
+              f"{vt['malicious'] if vt else 'N/A'},"
+              f"{vt['suspicious'] if vt else 'N/A'}")
+    else:
+        print(f"[ERROR] Unknown format: {format}")
