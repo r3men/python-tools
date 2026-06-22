@@ -1,8 +1,12 @@
+# Script Name: IP Enricher
+# Purpose: The purpose of this script is to cross-check given IP addresses against multiple different malware analysis websites such as VirusTotal and AbuseIPDB to identify malicious addresses.
+
 import argparse
 import requests
 import json
 import time
 import ipaddress
+import contextlib
 
 ABUSEIPDB_API_KEY = "Insert API key here"
 VIRUSTOTAL_API_KEY = "Insert API key here"
@@ -72,48 +76,90 @@ def queryVirusTotal(ip):
         print(f"[ERROR] VirusTotal query failed for {ip}: {e}")
         return None
     
-def enrichIP(ip):
+def enrichIP(ip, use_abuse=True, use_vt=True):
     results = {}
-    results["abuse"] = queryAbuseIPDB(ip)
-    time.sleep(15) # Respect API rate limits
-    results["virustotal"] = queryVirusTotal(ip)
+    if use_abuse:
+        results["abuse"] = queryAbuseIPDB(ip)
+        time.sleep(1)
+    if use_vt:
+        results["virustotal"] = queryVirusTotal(ip)
+        time.sleep(15) # Respect API limits
     return results
 
-def printResults(ip, results, format="table"): # Default format is to be printed as a table
+def printResults(ip, results, fmt="table", emit=print): # default format is a table
     abuse = results.get("abuse")
-    vt = results.get("virustotal") 
-    if format == "table":
-        print(f"\n{'='*50}")
-        print(f"  IP: {ip}")
-        print(f"{'='*50}")
+    vt = results.get("virustotal")
+    if fmt == "table":
+        emit(f"\n{'='*50}")
+        emit(f"  IP: {ip}")
+        emit(f"{'='*50}")
         if abuse:
-            print(f"\n  [AbuseIPDB]")
-            print(f"    Abuse Score : {abuse['abuseScore']}/100")
-            print(f"    Country     : {abuse['country']}")
-            print(f"    ISP         : {abuse['isp']}")
-            print(f"    Reports     : {abuse['reports']}")
-            print(f"    Last Seen   : {abuse['lastSeen']}")
+            emit(f"\n  [AbuseIPDB]")
+            emit(f"    Abuse Score : {abuse['abuseScore']}/100")
+            emit(f"    Country     : {abuse['country']}")
+            emit(f"    ISP         : {abuse['isp']}")
+            emit(f"    Reports     : {abuse['reports']}")
+            emit(f"    Last Seen   : {abuse['lastSeen']}")
         else:
-            print(f"\n  [AbuseIPDB] No data returned.")
+            emit(f"\n  [AbuseIPDB] No data returned.")
         if vt:
-            print(f"\n  [VirusTotal]")
-            print(f"    Malicious   : {vt['malicious']}")
-            print(f"    Suspicious  : {vt['suspicious']}")
-            print(f"    Harmless    : {vt['harmless']}")
-            print(f"    Country     : {vt['country']}")
-            print(f"    AS Owner    : {vt['asOwner']}")
+            emit(f"\n  [VirusTotal]")
+            emit(f"    Malicious   : {vt['malicious']}")
+            emit(f"    Suspicious  : {vt['suspicious']}")
+            emit(f"    Harmless    : {vt['harmless']}")
+            emit(f"    Country     : {vt['country']}")
+            emit(f"    AS Owner    : {vt['asOwner']}")
         else:
-            print(f"\n  [VirusTotal] No data returned.")
-        print(f"\n{'='*50}\n")
-    elif format == "json":
+            emit(f"\n  [VirusTotal] No data returned.")
+        emit(f"\n{'='*50}\n")
+    elif fmt == "json":
         output = {"ip": ip, "abuse": abuse, "virustotal": vt}
-        print(json.dumps(output, indent=4))
-    elif format == "csv":
-        print(f"{ip},"
-              f"{abuse['abuseScore'] if abuse else 'N/A'},"
-              f"{abuse['country'] if abuse else 'N/A'},"
-              f"{abuse['isp'] if abuse else 'N/A'},"
-              f"{vt['malicious'] if vt else 'N/A'},"
-              f"{vt['suspicious'] if vt else 'N/A'}")
+        emit(json.dumps(output, indent=4))
+    elif fmt == "csv":
+        emit(f"{ip},"
+             f"{abuse['abuseScore'] if abuse else 'N/A'},"
+             f"{abuse['country'] if abuse else 'N/A'},"
+             f"{abuse['isp'] if abuse else 'N/A'},"
+             f"{vt['malicious'] if vt else 'N/A'},"
+             f"{vt['suspicious'] if vt else 'N/A'}")
     else:
-        print(f"[ERROR] Unknown format: {format}")
+        emit(f"[ERROR] Unknown format: {fmt}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Analyze given IPs across multiple malware analysis sources such as VirusTotal and AbuseIPDB.")
+    parser.add_argument("input_file", help="Name of input text file to search")
+    parser.add_argument("--abuseipdb", action="store_true", help="Check IP against AbuseIPDB records")
+    parser.add_argument("--virustotal", action="store_true", help="Check IP against VirusTotal records")
+    parser.add_argument("--output", "-o", help="Write results to a file")
+    parser.add_argument("--format", choices=["table", "json", "csv"], default="table", help="Output format (table, json, csv)")
+    parser.add_argument("--threshold", type=int, default=0, help="Only show IPs with abuse score above this value")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show decode errors and warnings")
+    args = parser.parse_args()
+    query_all = not (args.abuseipdb or args.virustotal)
+    ips = readFile(args.input_file)
+    if not ips:
+        print("[ERROR] No valid IPs found in file.")
+        return
+
+    out_ctx = open(args.output, "w", encoding="utf-8") if args.output else contextlib.nullcontext()
+
+    with out_ctx as out_file:
+        def emit(s=""):
+            print(s) # Print to console & output file
+            if args.output:
+                out_file.write(s + "\n")
+        if args.format == "csv":
+            emit("ip,abuseScore,country,isp,malicious,suspicious")
+        for ip in ips:
+            results = enrichIP(ip, args.abuseipdb or query_all, args.virustotal or query_all)
+            abuse = results.get("abuse")
+            if abuse and abuse["abuseScore"] < args.threshold:
+                if args.verbose:
+                    print(f"[SKIP] {ip} scored {abuse['abuseScore']}, below threshold of {args.threshold}")
+                continue
+            printResults(ip, results, args.format, emit)
+    if args.output:
+        print(f"\n[INFO] Results written to {args.output}")
+
+if __name__ == "__main__":
+    main()
